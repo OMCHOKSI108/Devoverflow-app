@@ -4,7 +4,12 @@ import 'package:go_router/go_router.dart'; // <-- IMPORT go_router
 
 class VerificationPendingScreen extends StatelessWidget {
   final String email;
-  const VerificationPendingScreen({super.key, required this.email});
+  final String message;
+  const VerificationPendingScreen({
+    super.key,
+    required this.email,
+    this.message = 'Please check your email to verify your account',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -33,12 +38,22 @@ class VerificationPendingScreen extends StatelessWidget {
             ),
             const SizedBox(height: 15),
             Text(
-              'A verification link has been sent to:\n$email',
+              message,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 16,
                 height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 15),
+            Text(
+              'Email: $email',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 40),
@@ -52,7 +67,8 @@ class VerificationPendingScreen extends StatelessWidget {
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFF2C3E50),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30)),
               ),
               child: const Text(
                 'Back to Login',

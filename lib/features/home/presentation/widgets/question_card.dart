@@ -22,7 +22,8 @@ class QuestionCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          // 0.05 * 255 ≈ 13
+          color: Colors.white.withValues(alpha: 13),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -36,8 +37,9 @@ class QuestionCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  question.author,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  question.authorName,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 Text(
@@ -59,19 +61,27 @@ class QuestionCard extends StatelessWidget {
             Wrap(
               spacing: 8.0,
               runSpacing: 4.0,
-              children: question.tags.map((tag) => Chip(
-                label: Text(tag),
-                backgroundColor: const Color(0xFFF2C94C).withOpacity(0.2),
-                labelStyle: const TextStyle(color: Color(0xFFF2C94C), fontWeight: FontWeight.bold),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              )).toList(),
+              children: question.tags
+                  .map((tag) => Chip(
+                        label: Text(tag),
+                        backgroundColor:
+                            // 0.2 * 255 = 51
+                            const Color(0xFFF2C94C).withValues(alpha: 51),
+                        labelStyle: const TextStyle(
+                            color: Color(0xFFF2C94C),
+                            fontWeight: FontWeight.bold),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                      ))
+                  .toList(),
             ),
             const Divider(color: Colors.white24, height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildStatItem(Icons.arrow_upward, '${question.votes} Votes'),
-                _buildStatItem(Icons.comment_outlined, '${question.answers} Answers'),
+                _buildStatItem(
+                    Icons.comment_outlined, '${question.answersCount} Answers'),
                 // FIX: The bookmark button is now functional.
                 BlocBuilder<BookmarkCubit, BookmarkState>(
                   builder: (context, state) {
@@ -82,10 +92,14 @@ class QuestionCard extends StatelessWidget {
                     return IconButton(
                       icon: Icon(
                         isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                        color: isBookmarked ? Theme.of(context).colorScheme.secondary : Colors.white70,
+                        color: isBookmarked
+                            ? Theme.of(context).colorScheme.secondary
+                            : Colors.white70,
                       ),
                       onPressed: () {
-                        context.read<BookmarkCubit>().toggleBookmark(question.id);
+                        context
+                            .read<BookmarkCubit>()
+                            .toggleBookmark(question.id);
                       },
                     );
                   },

@@ -49,11 +49,11 @@ class _SignUpViewState extends State<SignUpView> {
   void _handleSignUp() {
     if (_formKey.currentState!.validate()) {
       context.read<AuthCubit>().signUp(
-        name: _nameController.text,
-        username: _usernameController.text,
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
+            name: _nameController.text,
+            username: _usernameController.text,
+            email: _emailController.text,
+            password: _passwordController.text,
+          );
     }
   }
 
@@ -63,7 +63,10 @@ class _SignUpViewState extends State<SignUpView> {
     return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state is AuthVerificationSent) {
-          context.go('/verification', extra: state.email);
+          context.go('/verification', extra: {
+            'email': state.email,
+            'message': state.message,
+          });
         } else if (state is AuthFailure) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
@@ -99,9 +102,13 @@ class _SignUpViewState extends State<SignUpView> {
                     child: Container(
                       padding: const EdgeInsets.all(24.0),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        // const constructor to satisfy prefer_const_constructors lint
+                        color: const Color.fromRGBO(255, 255, 255, 0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.2)),
+                        border:
+                            // 0.2 * 255 = 51
+                            Border.all(
+                                color: Colors.white.withValues(alpha: 51)),
                       ),
                       child: _buildSignUpForm(),
                     ),
@@ -122,17 +129,47 @@ class _SignUpViewState extends State<SignUpView> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Create Account', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+          const Text('Create Account',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 30),
-          AuthFormField(controller: _nameController, labelText: 'Name', icon: Icons.person_outline),
+          AuthFormField(
+              controller: _nameController,
+              labelText: 'Name',
+              icon: Icons.person_outline),
           const SizedBox(height: 20),
-          AuthFormField(controller: _usernameController, labelText: 'Username', icon: Icons.person_pin_outlined),
+          AuthFormField(
+              controller: _usernameController,
+              labelText: 'Username',
+              icon: Icons.person_pin_outlined),
           const SizedBox(height: 20),
-          AuthFormField(controller: _emailController, labelText: 'Email', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
+          AuthFormField(
+              controller: _emailController,
+              labelText: 'Email',
+              icon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress),
           const SizedBox(height: 20),
-          AuthFormField(controller: _passwordController, labelText: 'Password', icon: Icons.lock_outline, obscureText: !_isPasswordVisible, suffixIcon: _buildPasswordVisibilityToggle(), validator: (v) => v == null || v.length < 6 ? 'Password must be at least 6 characters' : null),
+          AuthFormField(
+              controller: _passwordController,
+              labelText: 'Password',
+              icon: Icons.lock_outline,
+              obscureText: !_isPasswordVisible,
+              suffixIcon: _buildPasswordVisibilityToggle(),
+              validator: (v) => v == null || v.length < 6
+                  ? 'Password must be at least 6 characters'
+                  : null),
           const SizedBox(height: 20),
-          AuthFormField(controller: _confirmPasswordController, labelText: 'Confirm Password', icon: Icons.lock_outline, obscureText: true, validator: (v) => v != _passwordController.text ? 'Passwords do not match' : null),
+          AuthFormField(
+              controller: _confirmPasswordController,
+              labelText: 'Confirm Password',
+              icon: Icons.lock_outline,
+              obscureText: true,
+              validator: (v) => v != _passwordController.text
+                  ? 'Passwords do not match'
+                  : null),
           const SizedBox(height: 40),
           BlocBuilder<AuthCubit, AuthState>(
             builder: (context, state) {
@@ -150,7 +187,8 @@ class _SignUpViewState extends State<SignUpView> {
 
   Widget _buildPasswordVisibilityToggle() {
     return IconButton(
-      icon: Icon(_isPasswordVisible ? Icons.visibility_off : Icons.visibility, color: Colors.white70),
+      icon: Icon(_isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+          color: Colors.white70),
       onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
     );
   }

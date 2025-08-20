@@ -1,60 +1,52 @@
 // lib/features/profile/presentation/cubit/profile_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:devoverflow/common/models/user_model.dart';
+import 'package:devoverflow/core/services/api_service.dart';
 import 'profile_state.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
-  ProfileCubit() : super(ProfileInitial());
+  final ApiService _apiService = ApiService();
 
-  late UserModel _currentUser;
+  // Expose apiService for image upload
+  ApiService get apiService => _apiService;
+
+  ProfileCubit() : super(ProfileInitial());
 
   Future<void> loadUserProfile() async {
     try {
       emit(ProfileLoading());
-      // Simulate fetching user data from an API
-      await Future.delayed(const Duration(milliseconds: 500));
-      _currentUser = UserModel(
-        id: 'u1',
-        name: 'Current User',
-        username: 'current_user',
-        email: 'user@example.com',
-        profileImageUrl: 'https://i.pravatar.cc/150?u=current_user',
-        bio: 'Flutter enthusiast and coffee lover. Building cool things with code.',
-      );
-      emit(ProfileLoaded(_currentUser));
+      // Fetch the current user's profile from your live backend.
+      final user = await _apiService.getMyProfile();
+      emit(ProfileLoaded(user));
     } catch (e) {
-      emit(const ProfileError('Failed to load profile.'));
+      emit(ProfileError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 
   Future<void> updateUserProfile({
-    required String name,
-    required String email,
-    String? mobileNumber,
     String? bio,
+    String? location,
+    String? website,
+    String? imageUrl,
   }) async {
     try {
-      emit(ProfileLoading());
-      // Simulate saving data to the backend
-      await Future.delayed(const Duration(seconds: 1));
+      // We only emit loading if the state is already loaded to avoid UI jumps
+      if (state is ProfileLoaded) {
+        emit(ProfileLoading());
+      }
 
-      // In a real app, you would get the updated user object back from the API
-      _currentUser = UserModel(
-        id: _currentUser.id,
-        name: name,
-        username: _currentUser.username,
-        email: email,
-        profileImageUrl: _currentUser.profileImageUrl,
+      // Call the API to update the profile
+      await _apiService.updateMyProfile(
         bio: bio,
-        mobileNumber: mobileNumber,
+        location: location,
+        website: website,
+        imageUrl: imageUrl,
       );
 
       emit(const ProfileUpdateSuccess('Profile updated successfully!'));
-      // After success, emit the loaded state again with the new data
-      emit(ProfileLoaded(_currentUser));
-
+      // Reload the profile to show the new data.
+      await loadUserProfile();
     } catch (e) {
-      emit(const ProfileError('Failed to update profile.'));
+      emit(ProfileError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 }

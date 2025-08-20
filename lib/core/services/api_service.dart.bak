@@ -1,0 +1,75 @@
+// lib/core/services/api_service.dart.bak
+import 'dart:convert';
+import 'dart:developer';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:devoverflow/common/models/question_model.dart';
+import 'package:devoverflow/common/models/answer_model.dart';
+import 'package:devoverflow/common/models/user_model.dart';
+
+class ApiService {
+  // Singleton pattern
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService() => _instance;
+  ApiService._internal() {
+    init();
+  }
+
+  // Private fields
+  final String _baseUrl = 'https://devoverflow-backend.onrender.com/api';
+  String? _token;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  static const String _kTokenKey = 'devoverflow_token';
+
+  // Public getters
+  bool get isAuthenticated => _token != null && _token!.isNotEmpty;
+
+  Map<String, String> _getHeaders() {
+    final headers = {
+      'Content-Type': 'application/json',
+    };
+    if (_token != null) {
+      headers['Authorization'] = 'Bearer $_token';
+    }
+    return headers;
+  }
+
+  String _handleError(http.Response response) {
+    try {
+      final data = json.decode(response.body);
+      return data['message'] ?? 'Unknown error occurred';
+    } catch (_) {
+      return 'Error: ${response.statusCode}';
+    }
+  }
+
+  // Token management
+  Future<void> init() async {
+    await _loadToken();
+  }
+
+  Future<void> _loadToken() async {
+    try {
+      final stored = await _secureStorage.read(key: _kTokenKey);
+      if (stored != null && stored.isNotEmpty) {
+        _token = stored;
+      }
+    } catch (_) {
+      // ignore storage errors; continue without token
+    }
+  }
+
+  Future<void> _saveToken(String token) async {
+    _token = token;
+    try {
+      await _secureStorage.write(key: _kTokenKey, value: token);
+    } catch (_) {}
+  }
+
+  Future<void> clearToken() async {
+    _token = null;
+    try {
+      await _secureStorage.delete(key: _kTokenKey);
+    } catch (_) {}
+  }
+}

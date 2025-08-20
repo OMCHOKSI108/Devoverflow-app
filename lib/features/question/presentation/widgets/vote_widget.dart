@@ -6,17 +6,19 @@ import 'package:devoverflow/features/question/presentation/cubit/vote_state.dart
 
 class VoteWidget extends StatelessWidget {
   final int initialVoteCount;
+  final String answerId;
 
   const VoteWidget({
     super.key,
     required this.initialVoteCount,
+    required this.answerId,
   });
 
   @override
   Widget build(BuildContext context) {
     // Provide the VoteCubit specifically to this widget instance.
     return BlocProvider(
-      create: (context) => VoteCubit(initialVoteCount),
+      create: (context) => VoteCubit(initialVoteCount, answerId: answerId),
       child: BlocBuilder<VoteCubit, VoteState>(
         builder: (context, state) {
           return Row(

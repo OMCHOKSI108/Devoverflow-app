@@ -27,8 +27,10 @@ class HomeView extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF2C3E50),
       appBar: AppBar(
-        title: const Text('DevOverflow', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF2C3E50).withOpacity(0.8),
+        title: const Text('DevOverflow',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        // 0.8 * 255 = 204
+        backgroundColor: const Color(0xFF2C3E50).withValues(alpha: 204),
         elevation: 0,
         actions: [
           IconButton(
@@ -50,7 +52,8 @@ class HomeView extends StatelessWidget {
             child: const Padding(
               padding: EdgeInsets.only(left: 8.0, right: 16.0),
               child: CircleAvatar(
-                backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=current_user'),
+                backgroundImage:
+                    NetworkImage('https://i.pravatar.cc/150?u=current_user'),
                 radius: 18,
               ),
             ),
@@ -63,6 +66,39 @@ class HomeView extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (state is HomeLoaded) {
+            if (state.questions.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.question_answer_outlined,
+                        size: 64, color: Colors.white.withValues(alpha: 153)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No questions yet',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 230),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Be the first to ask a question!',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 153),
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () => context.push('/ask'),
+                      child: const Text('Ask a Question'),
+                    ),
+                  ],
+                ),
+              );
+            }
             return ListView.builder(
               padding: const EdgeInsets.only(top: 10, bottom: 80),
               itemCount: state.questions.length,
@@ -72,9 +108,13 @@ class HomeView extends StatelessWidget {
             );
           }
           if (state is HomeError) {
-            return Center(child: Text('Error: ${state.message}', style: const TextStyle(color: Colors.white)));
+            return Center(
+                child: Text('Error: ${state.message}',
+                    style: const TextStyle(color: Colors.white)));
           }
-          return const Center(child: Text('Something went wrong.', style: const TextStyle(color: Colors.white)));
+          return const Center(
+              child: Text('Something went wrong.',
+                  style: TextStyle(color: Colors.white)));
         },
       ),
     );

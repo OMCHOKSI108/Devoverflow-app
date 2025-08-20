@@ -27,11 +27,95 @@ class LoginView extends StatefulWidget {
   State<LoginView> createState() => _LoginViewState();
 }
 
-class _LoginViewState extends State<LoginView> with SingleTickerProviderStateMixin {
+class _LoginViewState extends State<LoginView>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final bool? shouldSend = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock_reset, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Reset Password'),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Enter your email address and we\'ll send you instructions to reset your password.',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Please enter a valid email';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.of(context).pop(true);
+              }
+            },
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSend == true && mounted) {
+      try {
+        await context.read<AuthCubit>().forgotPassword(emailController.text);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password reset instructions sent to your email'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   late final AnimationController _titleAnimationController;
   late final Animation<double> _titleFadeAnimation;
@@ -73,9 +157,9 @@ class _LoginViewState extends State<LoginView> with SingleTickerProviderStateMix
   void _handleLogin(BuildContext context) {
     if (_formKey.currentState!.validate()) {
       context.read<AuthCubit>().login(
-        _emailController.text,
-        _passwordController.text,
-      );
+            _emailController.text,
+            _passwordController.text,
+          );
     }
   }
 
@@ -134,12 +218,16 @@ class _LoginViewState extends State<LoginView> with SingleTickerProviderStateMix
                     child: Container(
                       padding: const EdgeInsets.all(24.0),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
+                        // 0.08 * 255 = 20
+                        color: Colors.white.withValues(alpha: 20),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.15)),
+                        // 0.15 * 255 ≈ 38
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 38)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.35),
+                            // 0.35 * 255 ≈ 89
+                            color: Colors.black.withValues(alpha: 89),
                             blurRadius: 25,
                             offset: const Offset(0, 8),
                           ),
@@ -195,8 +283,8 @@ class _LoginViewState extends State<LoginView> with SingleTickerProviderStateMix
                                       : Icons.visibility,
                                   color: Colors.white70,
                                 ),
-                                onPressed: () =>
-                                    setState(() => _isPasswordVisible = !_isPasswordVisible),
+                                onPressed: () => setState(() =>
+                                    _isPasswordVisible = !_isPasswordVisible),
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -208,7 +296,7 @@ class _LoginViewState extends State<LoginView> with SingleTickerProviderStateMix
                             Align(
                               alignment: Alignment.centerRight,
                               child: TextButton(
-                                onPressed: () {/* TODO: Add forgot password */},
+                                onPressed: _showForgotPasswordDialog,
                                 child: const Text(
                                   'Forgot Password?',
                                   style: TextStyle(
@@ -223,8 +311,10 @@ class _LoginViewState extends State<LoginView> with SingleTickerProviderStateMix
                               builder: (context, state) {
                                 final isLoading = state is AuthLoading;
                                 return GestureDetector(
-                                  onTapDown: (_) => _titleAnimationController.reverse(),
-                                  onTapUp: (_) => _titleAnimationController.forward(),
+                                  onTapDown: (_) =>
+                                      _titleAnimationController.reverse(),
+                                  onTapUp: (_) =>
+                                      _titleAnimationController.forward(),
                                   child: AnimatedScale(
                                     scale: isLoading ? 1.0 : 0.97,
                                     duration: const Duration(milliseconds: 80),
@@ -245,7 +335,8 @@ class _LoginViewState extends State<LoginView> with SingleTickerProviderStateMix
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.white,
                                 side: const BorderSide(color: Colors.white38),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(30),
                                 ),

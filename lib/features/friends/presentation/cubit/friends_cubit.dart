@@ -1,28 +1,32 @@
 // lib/features/friends/presentation/cubit/friends_cubit.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:devoverflow/core/services/api_service.dart';
 import 'package:devoverflow/common/models/user_model.dart';
 import 'friends_state.dart';
 
 class FriendsCubit extends Cubit<FriendsState> {
+  final ApiService _apiService = ApiService();
+
   FriendsCubit() : super(FriendsInitial());
-
-  final String _currentUserId = 'u1';
-
-  late List<UserModel> _allUsers;
-  late Set<String> _friendIds;
 
   Future<void> fetchAllUsers() async {
     try {
       emit(FriendsLoading());
-      await Future.delayed(const Duration(milliseconds: 800));
-      _allUsers = _getMockUsers();
 
-      final currentUser = _allUsers.firstWhere((user) => user.id == _currentUserId);
-      _friendIds = Set<String>.from(currentUser.friendIds);
+      // Fetch all users and the current user's profile in parallel to get the friend list.
+      final futureAllUsers = _apiService.searchUsers();
+      final futureMyProfile = _apiService.getMyProfile();
 
-      emit(FriendsLoaded(allUsers: _allUsers, friendIds: _friendIds));
+      final results = await Future.wait([futureAllUsers, futureMyProfile]);
+
+      final allUsers = results[0] as List<UserModel>;
+      final myProfile = results[1] as UserModel;
+      final friendIds = Set<String>.from(myProfile.friendIds);
+
+      emit(FriendsLoaded(allUsers: allUsers, friendIds: friendIds));
     } catch (e) {
-      emit(const FriendsError('Failed to load users.'));
+      emit(FriendsError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 
@@ -37,40 +41,25 @@ class FriendsCubit extends Cubit<FriendsState> {
     }
   }
 
-  void addFriend(String userId) {
-    if (state is FriendsLoaded) {
-      final currentState = state as FriendsLoaded;
-      final updatedFriendIds = Set<String>.from(currentState.friendIds)..add(userId);
-      _friendIds = updatedFriendIds;
-      emit(FriendsLoaded(
-        allUsers: currentState.allUsers,
-        friendIds: updatedFriendIds,
-        searchTerm: currentState.searchTerm,
-      ));
+  Future<void> addFriend(String userId) async {
+    try {
+      await _apiService.addFriend(userId);
+      // After adding a friend, refresh the user list to show the change.
+      await fetchAllUsers();
+    } catch (e) {
+      // In a real app, you might want to show an error message.
+      debugPrint('Failed to add friend: $e');
     }
   }
 
-  void removeFriend(String userId) {
-    if (state is FriendsLoaded) {
-      final currentState = state as FriendsLoaded;
-      final updatedFriendIds = Set<String>.from(currentState.friendIds)..remove(userId);
-      _friendIds = updatedFriendIds;
-      emit(FriendsLoaded(
-        allUsers: currentState.allUsers,
-        friendIds: updatedFriendIds,
-        searchTerm: currentState.searchTerm,
-      ));
+  Future<void> removeFriend(String userId) async {
+    try {
+      // Your API docs don't have an unfollow endpoint, so we use the placeholder.
+      await _apiService.removeFriend(userId);
+      // After removing a friend, refresh the user list.
+      await fetchAllUsers();
+    } catch (e) {
+      debugPrint('Failed to remove friend: $e');
     }
-  }
-
-  List<UserModel> _getMockUsers() {
-    return [
-      UserModel(id: 'u1', name: 'Current User', username: 'current_user', email: '', profileImageUrl: 'https://i.pravatar.cc/150?u=current_user', friendIds: ['u2']),
-      UserModel(id: 'u2', name: 'Jane Doe', username: 'jane_doe', email: '', profileImageUrl: 'https://i.pravatar.cc/150?u=jane_doe'),
-      UserModel(id: 'u3', name: 'John Smith', username: 'john_smith', email: '', profileImageUrl: 'https://i.pravatar.cc/150?u=john_smith'),
-      UserModel(id: 'u4', name: 'Alex Johnson', username: 'alex_j', email: '', profileImageUrl: 'https://i.pravatar.cc/150?u=alex_johnson'),
-      UserModel(id: 'u5', name: 'Peter Jones', username: 'peterj', email: '', profileImageUrl: 'https://i.pravatar.cc/150?u=peter_jones'),
-      UserModel(id: 'u6', name: 'Sarah Lynn', username: 'sarahl', email: '', profileImageUrl: 'https://i.pravatar.cc/150?u=sarah_lynn'),
-    ];
   }
 }

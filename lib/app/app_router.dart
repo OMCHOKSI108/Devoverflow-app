@@ -52,8 +52,17 @@ class AppRouter {
       GoRoute(
         path: '/verification',
         builder: (context, state) {
-          final email = state.extra as String? ?? 'your email';
-          return VerificationPendingScreen(email: email);
+          final Map<String, dynamic> params;
+          if (state.extra is Map<String, dynamic>) {
+            params = state.extra as Map<String, dynamic>;
+          } else {
+            params = {'email': 'your email'};
+          }
+          return VerificationPendingScreen(
+            email: params['email'] as String,
+            message: params['message'] as String? ??
+                'Please check your email to verify your account',
+          );
         },
       ),
 
@@ -106,25 +115,33 @@ class AppRouter {
           // Branch 1: Home
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+              GoRoute(
+                  path: '/home',
+                  builder: (context, state) => const HomeScreen()),
             ],
           ),
           // Branch 2: Search
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
+              GoRoute(
+                  path: '/search',
+                  builder: (context, state) => const SearchScreen()),
             ],
           ),
           // Branch 3: Bookmarks
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/bookmarks', builder: (context, state) => const BookmarksScreen()),
+              GoRoute(
+                  path: '/bookmarks',
+                  builder: (context, state) => const BookmarksScreen()),
             ],
           ),
           // Branch 4: Profile
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
+              GoRoute(
+                  path: '/profile',
+                  builder: (context, state) => const ProfileScreen()),
             ],
           ),
         ],

@@ -24,8 +24,9 @@ class CommentWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  comment.author.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  comment.author.username,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 const SizedBox(height: 4),
                 Text(

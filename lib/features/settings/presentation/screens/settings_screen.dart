@@ -12,7 +12,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Settings'),
         leading: IconButton(
@@ -72,7 +72,8 @@ class SettingsScreen extends StatelessWidget {
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          color: Theme.of(context).colorScheme.onBackground.withOpacity(0.6),
+          // 0.6 * 255 ≈ 153
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 153),
           fontWeight: FontWeight.bold,
           fontSize: 12,
         ),
@@ -81,8 +82,12 @@ class SettingsScreen extends StatelessWidget {
   }
 
   // Helper widget for list tiles
-  Widget _buildListTile(BuildContext context, {required IconData icon, required String title, required VoidCallback onTap, Color? color}) {
-    final tileColor = color ?? Theme.of(context).colorScheme.onBackground;
+  Widget _buildListTile(BuildContext context,
+      {required IconData icon,
+      required String title,
+      required VoidCallback onTap,
+      Color? color}) {
+    final tileColor = color ?? Theme.of(context).colorScheme.onSurface;
     return ListTile(
       leading: Icon(icon, color: tileColor),
       title: Text(title, style: TextStyle(color: tileColor)),
@@ -97,7 +102,8 @@ class SettingsScreen extends StatelessWidget {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Delete Account?'),
-          content: const Text('This action is permanent and cannot be undone. Are you sure you want to delete your account?'),
+          content: const Text(
+              'This action is permanent and cannot be undone. Are you sure you want to delete your account?'),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
@@ -106,11 +112,12 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
             TextButton(
-              child: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              child: Text('Delete',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
               onPressed: () {
                 // In a real app, you would call a method in your AuthCubit here.
                 // For now, we just print a message and close the dialog.
-                print('Account deletion initiated.');
+                debugPrint('Account deletion initiated.');
                 Navigator.of(dialogContext).pop();
               },
             ),

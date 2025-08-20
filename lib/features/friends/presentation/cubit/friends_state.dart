@@ -30,8 +30,8 @@ class FriendsLoaded extends FriendsState {
     }
     return allUsers
         .where((user) =>
-    user.name.toLowerCase().contains(searchTerm.toLowerCase()) ||
-        user.username.toLowerCase().contains(searchTerm.toLowerCase()))
+            user.username.toLowerCase().contains(searchTerm.toLowerCase()) ||
+            user.username.toLowerCase().contains(searchTerm.toLowerCase()))
         .toList();
   }
 

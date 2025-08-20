@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:devoverflow/features/notifications/presentation/cubit/notifications_cubit.dart';
 import 'package:devoverflow/features/notifications/presentation/cubit/notifications_state.dart';
-import 'package:devoverflow/common/models/notification_model.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});

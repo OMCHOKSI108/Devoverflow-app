@@ -18,7 +18,8 @@ class QuestionDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => QuestionDetailsCubit()..fetchQuestionDetails(questionId),
+      create: (context) =>
+          QuestionDetailsCubit()..fetchQuestionDetails(questionId),
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Question'),
@@ -29,7 +30,8 @@ class QuestionDetailsScreen extends StatelessWidget {
         ),
         body: BlocBuilder<QuestionDetailsCubit, QuestionDetailsState>(
           builder: (context, state) {
-            if (state is QuestionDetailsLoading || state is QuestionDetailsInitial) {
+            if (state is QuestionDetailsLoading ||
+                state is QuestionDetailsInitial) {
               return const Center(child: CircularProgressIndicator());
             }
             if (state is QuestionDetailsError) {
@@ -37,7 +39,8 @@ class QuestionDetailsScreen extends StatelessWidget {
             }
             if (state is QuestionDetailsLoaded) {
               return ListView.builder(
-                itemCount: state.answers.length + 1, // +1 for the question header
+                itemCount:
+                    state.answers.length + 1, // +1 for the question header
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     // The first item in the list is the question itself.
@@ -45,7 +48,11 @@ class QuestionDetailsScreen extends StatelessWidget {
                   }
                   // The rest of the items are the answers.
                   final answer = state.answers[index - 1];
-                  return AnswerCard(answer: answer);
+                  return AnswerCard(
+                    answer: answer,
+                    isQuestionAuthor: true, // TODO: Get this from state
+                    onAccept: () => {}, // TODO: Implement accept functionality
+                  );
                 },
               );
             }

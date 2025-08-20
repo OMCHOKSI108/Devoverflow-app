@@ -110,7 +110,7 @@ class _SplashViewState extends State<SplashView> with SingleTickerProviderStateM
                 ),
               ),
             ),
-            Positioned(
+            const Positioned(
               bottom: 30.0,
               left: 0,
               right: 0,
@@ -118,7 +118,7 @@ class _SplashViewState extends State<SplashView> with SingleTickerProviderStateM
                 '© 2025 Om and Dev. All rights reserved.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: const Color.fromARGB(153, 255, 255, 255),
+                  color: Color.fromARGB(153, 255, 255, 255),
                   fontSize: 12.0,
                 ),
               ),

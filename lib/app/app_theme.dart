@@ -19,11 +19,9 @@ class AppTheme {
     colorScheme: const ColorScheme.light(
       primary: primaryColor,
       secondary: Colors.deepOrange,
-      background: Color(0xFFF5F5F5),
       surface: Colors.white,
       onPrimary: lightTextColor,
       onSecondary: lightTextColor,
-      onBackground: darkTextColor,
       onSurface: darkTextColor,
       error: accentRed,
     ),
@@ -82,11 +80,9 @@ class AppTheme {
     colorScheme: const ColorScheme.dark(
       primary: primaryColor,
       secondary: accentColor,
-      background: background,
       surface: primaryColor,
       onPrimary: lightTextColor,
       onSecondary: darkTextColor,
-      onBackground: lightTextColor,
       onSurface: lightTextColor,
       error: accentRed,
     ),

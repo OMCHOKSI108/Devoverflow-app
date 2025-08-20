@@ -33,17 +33,20 @@ class _ChatbotViewState extends State<ChatbotView> {
     if (_textController.text.trim().isEmpty) return;
     context.read<ChatbotCubit>().sendMessage(_textController.text.trim());
     _textController.clear();
-    FocusScope.of(context).unfocus(); // Hide keyboard
+    FocusScope.of(context).unfocus();
   }
 
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    // A small delay ensures the list has time to update before scrolling.
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
@@ -56,11 +59,11 @@ class _ChatbotViewState extends State<ChatbotView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('AI Assistant'),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
       ),
@@ -69,11 +72,9 @@ class _ChatbotViewState extends State<ChatbotView> {
           Expanded(
             child: BlocConsumer<ChatbotCubit, ChatbotState>(
               listener: (context, state) {
-                // Scroll to bottom whenever a new message is added or loading starts
                 _scrollToBottom();
               },
               builder: (context, state) {
-                // FIX: Simplified logic to handle state and get messages.
                 List<ChatMessage> messages = [];
                 bool isLoading = false;
 
@@ -93,15 +94,12 @@ class _ChatbotViewState extends State<ChatbotView> {
                 return ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.all(16),
-                  reverse: true, // Makes the list start from the bottom
                   itemCount: messages.length + (isLoading ? 1 : 0),
                   itemBuilder: (context, index) {
-                    if (isLoading && index == 0) {
+                    if (isLoading && index == messages.length) {
                       return const _TypingIndicator();
                     }
-                    final messageIndex = index - (isLoading ? 1 : 0);
-                    // Access messages from the end of the list because it's reversed
-                    final message = messages.reversed.toList()[messageIndex];
+                    final message = messages[index];
                     return _ChatMessageBubble(message: message);
                   },
                 );
@@ -118,7 +116,8 @@ class _ChatbotViewState extends State<ChatbotView> {
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor,
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
         children: [
@@ -156,11 +155,11 @@ class _ChatMessageBubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isUser
-              ? Theme.of(context).colorScheme.secondary
-          // FIX: Replaced deprecated withOpacity with withAlpha
-              : Theme.of(context).primaryColor.withAlpha(128),
-          borderRadius: BorderRadius.circular(20),
+            color: isUser
+                ? Theme.of(context).colorScheme.secondary
+                : Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Theme.of(context).dividerColor)
         ),
         child: Text(
           message.text,
@@ -180,11 +179,15 @@ class _TypingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Align(
+    return Align(
       alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 8.0),
-        child: Text("AI is typing...", style: TextStyle(fontStyle: FontStyle.italic)),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: const Text(
+          "AI is typing...",
+          style: TextStyle(fontStyle: FontStyle.italic),
+        ),
       ),
     );
   }

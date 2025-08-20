@@ -15,10 +15,9 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _emailController;
-  late TextEditingController _mobileController;
   late TextEditingController _bioController;
+  late TextEditingController _locationController;
+  late TextEditingController _websiteController;
 
   @override
   void initState() {
@@ -26,35 +25,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final profileCubit = context.read<ProfileCubit>();
     if (profileCubit.state is ProfileLoaded) {
       final user = (profileCubit.state as ProfileLoaded).user;
-      _nameController = TextEditingController(text: user.name);
-      _emailController = TextEditingController(text: user.email);
-      _mobileController = TextEditingController(text: user.mobileNumber);
       _bioController = TextEditingController(text: user.bio);
+      _locationController = TextEditingController(text: user.location);
+      _websiteController = TextEditingController(text: user.website);
     } else {
-      // Initialize with empty controllers if state is not loaded
-      _nameController = TextEditingController();
-      _emailController = TextEditingController();
-      _mobileController = TextEditingController();
       _bioController = TextEditingController();
+      _locationController = TextEditingController();
+      _websiteController = TextEditingController();
     }
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _mobileController.dispose();
     _bioController.dispose();
+    _locationController.dispose();
+    _websiteController.dispose();
     super.dispose();
   }
 
   void _onSaveChanges() {
     if (_formKey.currentState!.validate()) {
       context.read<ProfileCubit>().updateUserProfile(
-        name: _nameController.text,
-        email: _emailController.text,
-        mobileNumber: _mobileController.text,
         bio: _bioController.text,
+        location: _locationController.text,
+        website: _websiteController.text,
       );
     }
   }
@@ -75,7 +69,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ScaffoldMessenger.of(context)
               ..hideCurrentSnackBar()
               ..showSnackBar(SnackBar(content: Text(state.message), backgroundColor: Colors.green));
-            context.pop(); // Go back to profile screen on success
+            context.pop();
           } else if (state is ProfileError) {
             ScaffoldMessenger.of(context)
               ..hideCurrentSnackBar()
@@ -83,23 +77,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           }
         },
         builder: (context, state) {
+          if (state is! ProfileLoaded) {
+            return const Center(child: CircularProgressIndicator());
+          }
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Form(
               key: _formKey,
               child: Column(
                 children: [
-                  _buildProfileImage(),
+                  _buildProfileImage(state.user.profileImageUrl),
                   const SizedBox(height: 30),
-                  TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Full Name')),
-                  const SizedBox(height: 20),
-                  TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email Address')),
-                  const SizedBox(height: 10),
-                  const Text('Changing email will require re-verification.', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                  const SizedBox(height: 20),
-                  TextFormField(controller: _mobileController, decoration: const InputDecoration(labelText: 'Mobile Number (Optional)')),
-                  const SizedBox(height: 20),
                   TextFormField(controller: _bioController, decoration: const InputDecoration(labelText: 'Your Bio'), maxLines: 3),
+                  const SizedBox(height: 20),
+                  TextFormField(controller: _locationController, decoration: const InputDecoration(labelText: 'Location')),
+                  const SizedBox(height: 20),
+                  TextFormField(controller: _websiteController, decoration: const InputDecoration(labelText: 'Website URL')),
                   const SizedBox(height: 40),
                   PrimaryButton(
                     text: 'Save Changes',
@@ -115,12 +108,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildProfileImage() {
+  Widget _buildProfileImage(String imageUrl) {
     return Stack(
       children: [
-        const CircleAvatar(
+        CircleAvatar(
           radius: 60,
-          backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=current_user'),
+          backgroundImage: NetworkImage(imageUrl),
         ),
         Positioned(
           bottom: 0,
@@ -131,7 +124,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: IconButton(
               icon: const Icon(Icons.edit, color: Colors.black, size: 20),
               onPressed: () {
-                // Add logic to pick an image from the gallery
+                // Your file upload logic would go here
               },
             ),
           ),

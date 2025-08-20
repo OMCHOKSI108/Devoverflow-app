@@ -70,15 +70,19 @@ class FriendsView extends StatelessWidget {
                         leading: CircleAvatar(
                           backgroundImage: NetworkImage(user.profileImageUrl),
                         ),
-                        title: Text(user.name),
-                        subtitle: Text('@${user.username}'),
+                        title: Text(user.username),
+                        subtitle: Text(user.email),
                         trailing: IconButton(
                           icon: isFriend
-                              ? const Icon(Icons.person_remove, color: Colors.redAccent)
-                              : const Icon(Icons.person_add, color: Colors.green),
+                              ? const Icon(Icons.person_remove,
+                                  color: Colors.redAccent)
+                              : const Icon(Icons.person_add,
+                                  color: Colors.green),
                           onPressed: () {
                             if (isFriend) {
-                              context.read<FriendsCubit>().removeFriend(user.id);
+                              context
+                                  .read<FriendsCubit>()
+                                  .removeFriend(user.id);
                             } else {
                               context.read<FriendsCubit>().addFriend(user.id);
                             }

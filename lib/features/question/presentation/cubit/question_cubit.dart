@@ -1,13 +1,17 @@
 // lib/features/question/presentation/cubit/question_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:devoverflow/common/models/question_model.dart';
+import 'package:devoverflow/core/services/api_service.dart';
 import 'package:devoverflow/features/home/presentation/cubit/home_cubit.dart';
 import 'question_state.dart';
 
 class QuestionCubit extends Cubit<QuestionState> {
+  final ApiService _apiService = ApiService();
+
   final HomeCubit homeCubit;
 
-  QuestionCubit({required this.homeCubit}) : super(QuestionInitial());
+  QuestionCubit({
+    required this.homeCubit,
+  }) : super(QuestionInitial());
 
   Future<void> submitQuestion({
     required String title,
@@ -16,23 +20,19 @@ class QuestionCubit extends Cubit<QuestionState> {
   }) async {
     try {
       emit(QuestionSubmitting());
-      await Future.delayed(const Duration(seconds: 1));
 
-      final newQuestion = Question(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+      // Post the new question to your live backend.
+      await _apiService.createQuestion(
         title: title,
-        author: 'Current User',
-        authorImageUrl: 'https://i.pravatar.cc/150?u=current_user',
-        votes: 0,
-        answers: 0,
+        body: body,
         tags: tags.split(',').map((t) => t.trim()).toList(),
-        timestamp: DateTime.now(),
       );
 
-      homeCubit.addQuestion(newQuestion);
+      // Refresh questions list in home screen
+      await homeCubit.fetchQuestions();
       emit(QuestionSubmitSuccess());
     } catch (e) {
-      emit(const QuestionSubmitError('Failed to submit question.'));
+      emit(QuestionSubmitError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 }

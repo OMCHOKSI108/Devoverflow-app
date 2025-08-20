@@ -19,10 +19,18 @@ class MainScaffold extends StatelessWidget {
 
   void _onItemTapped(int index, BuildContext context) {
     switch (index) {
-      case 0: context.go('/home'); break;
-      case 1: context.go('/search'); break;
-      case 2: context.go('/bookmarks'); break;
-      case 3: context.go('/profile'); break;
+      case 0:
+        context.go('/home');
+        break;
+      case 1:
+        context.go('/search');
+        break;
+      case 2:
+        context.go('/bookmarks');
+        break;
+      case 3:
+        context.go('/profile');
+        break;
     }
   }
 
@@ -35,7 +43,8 @@ class MainScaffold extends StatelessWidget {
         onPressed: () => context.push('/ask-question'),
         // FIX: Use theme color
         backgroundColor: Theme.of(context).colorScheme.secondary,
-        child: Icon(Icons.add, color: Theme.of(context).colorScheme.onSecondary),
+        child:
+            Icon(Icons.add, color: Theme.of(context).colorScheme.onSecondary),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: ClipRRect(
@@ -48,7 +57,8 @@ class MainScaffold extends StatelessWidget {
           child: BottomAppBar(
             shape: const CircularNotchedRectangle(),
             // FIX: Use theme color with opacity
-            color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+            // 0.8 * 255 = 204
+            color: Theme.of(context).colorScheme.surface.withValues(alpha: 204),
             notchMargin: 8.0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -66,12 +76,13 @@ class MainScaffold extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(BuildContext context, IconData icon, String label, int index) {
+  Widget _buildNavItem(
+      BuildContext context, IconData icon, String label, int index) {
     final isSelected = _calculateSelectedIndex(context) == index;
     // FIX: Use theme colors for selected and unselected icons
     final color = isSelected
         ? Theme.of(context).colorScheme.secondary
-        : Theme.of(context).colorScheme.onSurface.withOpacity(0.7);
+        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 179);
 
     return IconButton(
       icon: Icon(icon, color: color, size: 28),

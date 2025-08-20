@@ -1,6 +1,10 @@
 // lib/features/home/presentation/widgets/question_card.dart
 import 'package:flutter/material.dart';
-import '../../../../common/models/question_model.dart'; // <-- IMPORT THE NEW MODEL
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:devoverflow/common/models/question_model.dart';
+import 'package:devoverflow/features/bookmarks/presentation/cubit/bookmark_cubit.dart';
+import 'package:devoverflow/features/bookmarks/presentation/cubit/bookmark_state.dart';
 
 class QuestionCard extends StatelessWidget {
   final Question question;
@@ -9,67 +13,102 @@ class QuestionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundImage: NetworkImage(question.authorImageUrl),
-                radius: 16,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                question.author,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
-              Text(
-                '${DateTime.now().difference(question.timestamp).inHours}h ago',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            question.title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+    return InkWell(
+      onTap: () {
+        context.push('/question/${question.id}');
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          // 0.05 * 255 ≈ 13
+          color: Colors.white.withValues(alpha: 13),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundImage: NetworkImage(question.authorImageUrl),
+                  radius: 16,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  // FIX: Use the correct property 'authorName'
+                  question.authorName,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Text(
+                  '${DateTime.now().difference(question.timestamp).inHours}h ago',
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8.0,
-            runSpacing: 4.0,
-            children: question.tags.map((tag) => Chip(
-              label: Text(tag),
-              backgroundColor: const Color(0xFFF2C94C).withOpacity(0.2),
-              labelStyle: const TextStyle(color: Color(0xFFF2C94C), fontWeight: FontWeight.bold),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            )).toList(),
-          ),
-          const Divider(color: Colors.white24, height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatItem(Icons.arrow_upward, '${question.votes} Votes'),
-              _buildStatItem(Icons.comment_outlined, '${question.answers} Answers'),
-              IconButton(
-                icon: const Icon(Icons.bookmark_border, color: Colors.white70),
-                onPressed: () {},
-              )
-            ],
-          ),
-        ],
+            const SizedBox(height: 12),
+            Text(
+              question.title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: question.tags
+                  .map((tag) => Chip(
+                        label: Text(tag),
+                        // 0.2 * 255 = 51
+                        backgroundColor:
+                            const Color(0xFFF2C94C).withValues(alpha: 51),
+                        labelStyle: const TextStyle(
+                            color: Color(0xFFF2C94C),
+                            fontWeight: FontWeight.bold),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                      ))
+                  .toList(),
+            ),
+            const Divider(color: Colors.white24, height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildStatItem(Icons.arrow_upward, '${question.votes} Votes'),
+                // FIX: Use the correct property 'answersCount'
+                _buildStatItem(
+                    Icons.comment_outlined, '${question.answersCount} Answers'),
+                BlocBuilder<BookmarkCubit, BookmarkState>(
+                  builder: (context, state) {
+                    bool isBookmarked = false;
+                    if (state is BookmarksLoaded) {
+                      isBookmarked = state.bookmarkedIds.contains(question.id);
+                    }
+                    return IconButton(
+                      icon: Icon(
+                        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                        color: isBookmarked
+                            ? Theme.of(context).colorScheme.secondary
+                            : Colors.white70,
+                      ),
+                      onPressed: () {
+                        context
+                            .read<BookmarkCubit>()
+                            .toggleBookmark(question.id);
+                      },
+                    );
+                  },
+                )
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
