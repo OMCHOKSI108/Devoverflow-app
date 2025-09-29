@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_service.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -37,10 +38,55 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _loadProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        _name = prefs.getString('name') ?? 'User';
-        _imageBase64 = prefs.getString('profile_image');
-      });
+      final currentUserEmail = prefs.getString('current_user_email');
+
+      if (currentUserEmail != null) {
+        // Prefer API for current user profile
+        try {
+          final resp = await ApiService().getCurrentUser();
+          final user = resp['user'] ?? {};
+          if (user is Map && user.isNotEmpty) {
+            setState(() {
+              _name = user['name'] ?? user['username'] ?? 'User';
+              _imageBase64 =
+                  user['profile_image'] ?? prefs.getString('profile_image');
+            });
+            return;
+          }
+        } catch (_) {
+          // ignore and fallback to prefs
+        }
+
+        // Fallback to prefs (seeded data)
+        String userName =
+            prefs.getString('current_user_name') ??
+            prefs.getString('name') ??
+            '';
+
+        if (userName.isEmpty) {
+          final allUsersRaw = prefs.getString('all_users');
+          if (allUsersRaw != null) {
+            final allUsers = (json.decode(allUsersRaw) as List)
+                .cast<Map<String, dynamic>>();
+            final user = allUsers.firstWhere(
+              (u) => u['email'] == currentUserEmail,
+              orElse: () => {},
+            );
+            if (user.isNotEmpty) {
+              userName = user['name'] ?? user['username'] ?? 'User';
+            }
+          }
+        }
+
+        setState(() {
+          _name = userName.isEmpty ? 'User' : userName;
+          _imageBase64 = prefs.getString('profile_image');
+        });
+      } else {
+        setState(() {
+          _name = 'User';
+        });
+      }
     } catch (_) {
       setState(() {
         _name = 'User';
@@ -123,9 +169,19 @@ class _HomeScreenState extends State<HomeScreen>
             const Divider(height: 1),
             const SizedBox(height: 8),
             ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('Notifications'),
+              onTap: () => Navigator.pushNamed(context, '/notifications'),
+            ),
+            ListTile(
               leading: const Icon(Icons.bookmark),
               title: const Text('Bookmarks'),
               onTap: () => Navigator.pushNamed(context, '/bookmarks'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.search),
+              title: const Text('Advanced Search'),
+              onTap: () => Navigator.pushNamed(context, '/search'),
             ),
             ListTile(
               leading: const Icon(Icons.person_outline),
@@ -148,9 +204,14 @@ class _HomeScreenState extends State<HomeScreen>
               onTap: () => Navigator.pushNamed(context, '/aichatbot'),
             ),
             ListTile(
+              leading: const Icon(Icons.account_tree),
+              title: const Text('AI Flowchart'),
+              onTap: () => Navigator.pushNamed(context, '/flowchart'),
+            ),
+            ListTile(
               leading: const Icon(Icons.smart_toy),
               title: const Text('Group Lobby'),
-              onTap: () => Navigator.pushNamed(context, '/groupchat'),
+              onTap: () => Navigator.pushNamed(context, '/groups'),
             ),
             // Groups entry removed from drawer (accessible via Quick Actions)
           ],
@@ -200,15 +261,7 @@ class _HomeScreenState extends State<HomeScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Hello,',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _name,
+                            'Hello $_name',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -219,7 +272,7 @@ class _HomeScreenState extends State<HomeScreen>
                           Text(
                             'Find solutions, share knowledge',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.85),
+                              color: Colors.white.withValues(alpha: 0.85),
                               fontSize: 12,
                             ),
                           ),
@@ -265,6 +318,23 @@ class _HomeScreenState extends State<HomeScreen>
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   children: [
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.search,
+                          color: Color(0xFF667eea),
+                        ),
+                        title: const Text('Advanced Search'),
+                        subtitle: const Text('Find questions with filters'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pushNamed(context, '/search'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Card(
                       elevation: 2,
                       shape: RoundedRectangleBorder(
@@ -323,6 +393,22 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       child: ListTile(
                         leading: const Icon(
+                          Icons.account_tree,
+                          color: Color(0xFF667eea),
+                        ),
+                        title: const Text('AI Flowchart'),
+                        subtitle: const Text('Generate flowcharts with AI'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pushNamed(context, '/flowchart'),
+                      ),
+                    ),
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(
                           Icons.smart_toy,
                           color: Color(0xFF667eea),
                         ),
@@ -354,6 +440,12 @@ class _HomeScreenState extends State<HomeScreen>
               tooltip: 'Bookmarks',
             ),
             IconButton(
+              onPressed: () => Navigator.pushNamed(context, '/search'),
+              icon: const Icon(Icons.search),
+              color: const Color(0xFF667eea),
+              tooltip: 'Search',
+            ),
+            IconButton(
               onPressed: () => Navigator.pushNamed(context, '/myfriends'),
               icon: const Icon(Icons.person),
               color: const Color(0xFF667eea),
@@ -370,6 +462,12 @@ class _HomeScreenState extends State<HomeScreen>
               icon: const Icon(Icons.smart_toy),
               color: const Color(0xFF667eea),
               tooltip: 'AI ChatBot',
+            ),
+            IconButton(
+              onPressed: () => Navigator.pushNamed(context, '/flowchart'),
+              icon: const Icon(Icons.account_tree),
+              color: const Color(0xFF667eea),
+              tooltip: 'AI Flowchart',
             ),
           ],
         ),

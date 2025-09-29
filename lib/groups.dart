@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_service.dart';
 
 // Simple group model
 class Group {
@@ -90,7 +91,7 @@ class DiscussionMessage {
 
 // Main Groups screen: list and create groups
 class GroupListScreen extends StatefulWidget {
-  const GroupListScreen({Key? key}) : super(key: key);
+  const GroupListScreen({super.key});
 
   @override
   State<GroupListScreen> createState() => _GroupListScreenState();
@@ -98,6 +99,7 @@ class GroupListScreen extends StatefulWidget {
 
 class _GroupListScreenState extends State<GroupListScreen> {
   List<Group> _groups = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -106,6 +108,55 @@ class _GroupListScreenState extends State<GroupListScreen> {
   }
 
   Future<void> _loadGroups() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await ApiService().getAllGroups();
+      List<dynamic> list = ApiService().extractList(response, [
+        'groups',
+        'data',
+      ]);
+
+      // Handle nested data structure: response.data.groups
+      if (list.isEmpty) {
+        final data = response['data'];
+        if (data is Map<String, dynamic> && data['groups'] is List) {
+          list = data['groups'] as List<dynamic>;
+        }
+      }
+      final parsed = list.map((g) => g as Map<String, dynamic>).map((g) {
+        final id =
+            g['id'] ??
+            g['_id'] ??
+            g['name']?.toString().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+        return Group.fromJson({
+          'id': id.toString(),
+          'name': g['name'] ?? g['title'] ?? 'Unnamed',
+          'description': g['description'] ?? '',
+        });
+      }).toList();
+
+      setState(() {
+        _groups = parsed;
+      });
+
+      // Cache groups to prefs for offline fallback
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'groups',
+          json.encode(_groups.map((g) => g.toJson()).toList()),
+        );
+      } catch (_) {}
+    } catch (e) {
+      // Fallback to local storage on error
+      await _loadGroupsFromLocal();
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadGroupsFromLocal() async {
     final prefs = await SharedPreferences.getInstance();
     if (!prefs.containsKey('groups')) {
       final defaultGroups = [
@@ -156,22 +207,54 @@ class _GroupListScreenState extends State<GroupListScreen> {
       ),
     );
     if (ok != true) return;
-    final id = nameCtrl.text.trim().toLowerCase().replaceAll(
-      RegExp(r'\s+'),
-      '_',
-    );
-    final g = Group(
-      id: id,
-      name: nameCtrl.text.trim(),
-      description: descCtrl.text.trim(),
-    );
-    _groups.add(g);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      'groups',
-      json.encode(_groups.map((e) => e.toJson()).toList()),
-    );
-    setState(() {});
+
+    try {
+      final response = await ApiService().createGroup(
+        nameCtrl.text.trim(),
+        descCtrl.text.trim(),
+      );
+
+      if (response['success'] == true) {
+        // Reload groups to get the updated list
+        await _loadGroups();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Group created successfully!')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Failed to create group'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Fallback to local creation if API fails
+      final id = nameCtrl.text.trim().toLowerCase().replaceAll(
+        RegExp(r'\s+'),
+        '_',
+      );
+      final g = Group(
+        id: id,
+        name: nameCtrl.text.trim(),
+        description: descCtrl.text.trim(),
+      );
+      _groups.add(g);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'groups',
+        json.encode(_groups.map((e) => e.toJson()).toList()),
+      );
+      setState(() {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group created locally (offline mode)')),
+        );
+      }
+    }
   }
 
   @override
@@ -181,21 +264,48 @@ class _GroupListScreenState extends State<GroupListScreen> {
         title: const Text('Groups'),
         backgroundColor: const Color(0xFF667eea),
       ),
-      body: ListView.builder(
-        itemCount: _groups.length,
-        itemBuilder: (c, i) {
-          final g = _groups[i];
-          return ListTile(
-            leading: CircleAvatar(child: Text(g.name[0])),
-            title: Text(g.name),
-            subtitle: Text(g.description),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => GroupDetailScreen(group: g)),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667eea)),
+              ),
+            )
+          : _groups.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.group_off, size: 80, color: Colors.grey.shade400),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No groups yet',
+                    style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Create your first group to get started!',
+                    style: TextStyle(color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: _groups.length,
+              itemBuilder: (c, i) {
+                final g = _groups[i];
+                return ListTile(
+                  leading: CircleAvatar(child: Text(g.name[0])),
+                  title: Text(g.name),
+                  subtitle: Text(g.description),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => GroupDetailScreen(group: g),
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF667eea),
         onPressed: _createGroup,
@@ -208,7 +318,7 @@ class _GroupListScreenState extends State<GroupListScreen> {
 // Group detail: tabs for Questions and Discussions
 class GroupDetailScreen extends StatefulWidget {
   final Group group;
-  const GroupDetailScreen({Key? key, required this.group}) : super(key: key);
+  const GroupDetailScreen({super.key, required this.group});
 
   @override
   State<GroupDetailScreen> createState() => _GroupDetailScreenState();
@@ -219,6 +329,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   late TabController _tabController;
   List<GroupQuestion> _questions = [];
   List<DiscussionMessage> _messages = [];
+  bool _isLoadingQuestions = true;
+  bool _isLoadingMessages = true;
+  bool _isMember = false;
 
   @override
   void initState() {
@@ -228,20 +341,68 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   }
 
   Future<void> _loadData() async {
+    setState(() {
+      _isLoadingQuestions = true;
+      _isLoadingMessages = true;
+    });
+
+    // Load group details and membership status
+    try {
+      final groupResponse = await ApiService().getGroupDetails(widget.group.id);
+      if (groupResponse['success'] == true) {
+        final groupData = groupResponse['group'];
+        setState(() => _isMember = groupData['isMember'] ?? false);
+      }
+    } catch (e) {
+      // Group details failed, continue with local data
+    }
+
+    // Load questions
+    try {
+      final questionsResponse = await ApiService().getGroupQuestions(
+        widget.group.id,
+      );
+      if (questionsResponse['success'] == true) {
+        final questionsData = questionsResponse['questions'] as List? ?? [];
+        setState(() {
+          _questions = questionsData
+              .map((q) => GroupQuestion.fromJson(q as Map<String, dynamic>))
+              .toList();
+        });
+      } else {
+        // Fallback to local questions
+        await _loadQuestionsFromLocal();
+      }
+    } catch (e) {
+      // Fallback to local questions on error
+      await _loadQuestionsFromLocal();
+    } finally {
+      setState(() => _isLoadingQuestions = false);
+    }
+
+    // Load discussions (for now, keep local since API might not have this endpoint)
+    await _loadMessagesFromLocal();
+    setState(() => _isLoadingMessages = false);
+  }
+
+  Future<void> _loadQuestionsFromLocal() async {
     final prefs = await SharedPreferences.getInstance();
     final qKey = 'group_${widget.group.id}_questions';
-    final dKey = 'group_${widget.group.id}_discussions';
     if (prefs.containsKey(qKey)) {
       final qRaw = prefs.getString(qKey)!;
       final qList = json.decode(qRaw) as List;
       _questions = qList.map((e) => GroupQuestion.fromJson(e)).toList();
     }
+  }
+
+  Future<void> _loadMessagesFromLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dKey = 'group_${widget.group.id}_discussions';
     if (prefs.containsKey(dKey)) {
       final dRaw = prefs.getString(dKey)!;
       final dList = json.decode(dRaw) as List;
       _messages = dList.map((e) => DiscussionMessage.fromJson(e)).toList();
     }
-    setState(() {});
   }
 
   Future<void> _postQuestion() async {
@@ -277,20 +438,127 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       ),
     );
     if (ok != true) return;
-    final q = GroupQuestion(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: titleCtrl.text.trim(),
-      body: bodyCtrl.text.trim(),
-      author: 'You',
-    );
-    _questions.insert(0, q);
-    final prefs = await SharedPreferences.getInstance();
-    final qKey = 'group_${widget.group.id}_questions';
-    await prefs.setString(
-      qKey,
-      json.encode(_questions.map((e) => e.toJson()).toList()),
-    );
-    setState(() {});
+
+    try {
+      final response = await ApiService().postGroupQuestion(
+        widget.group.id,
+        titleCtrl.text.trim(),
+        bodyCtrl.text.trim(),
+      );
+
+      if (response['success'] == true) {
+        // Reload questions to get the updated list
+        await _loadData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Question posted successfully!')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Failed to post question'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Fallback to local posting if API fails
+      final q = GroupQuestion(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: titleCtrl.text.trim(),
+        body: bodyCtrl.text.trim(),
+        author: 'You',
+      );
+      _questions.insert(0, q);
+      final prefs = await SharedPreferences.getInstance();
+      final qKey = 'group_${widget.group.id}_questions';
+      await prefs.setString(
+        qKey,
+        json.encode(_questions.map((e) => e.toJson()).toList()),
+      );
+      setState(() {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Question posted locally (offline mode)'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _joinGroup() async {
+    try {
+      final response = await ApiService().joinGroup(widget.group.id);
+
+      if (response['success'] == true) {
+        setState(() => _isMember = true);
+        // Reload data to get updated member count
+        await _loadData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Joined group successfully!')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Failed to join group'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Fallback to local join if API fails
+      setState(() => _isMember = true);
+      final prefs = await SharedPreferences.getInstance();
+      final mKey = 'group_${widget.group.id}_member';
+      await prefs.setBool(mKey, true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Joined group locally (offline mode)')),
+        );
+      }
+    }
+  }
+
+  Future<void> _leaveGroup() async {
+    try {
+      final response = await ApiService().leaveGroup(widget.group.id);
+
+      if (response['success'] == true) {
+        setState(() => _isMember = false);
+        // Reload data to get updated member count
+        await _loadData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Left group successfully!')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Failed to leave group'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Fallback to local leave if API fails
+      setState(() => _isMember = false);
+      final prefs = await SharedPreferences.getInstance();
+      final mKey = 'group_${widget.group.id}_member';
+      await prefs.setBool(mKey, false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Left group locally (offline mode)')),
+        );
+      }
+    }
   }
 
   Future<void> _postMessage(String text) async {
@@ -328,6 +596,19 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
             Tab(text: 'Discussions'),
           ],
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: ElevatedButton(
+              onPressed: _isMember ? _leaveGroup : _joinGroup,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isMember ? Colors.red : Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(_isMember ? 'Leave Group' : 'Join Group'),
+            ),
+          ),
+        ],
       ),
       body: TabBarView(
         controller: _tabController,
@@ -335,27 +616,39 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
           // Questions tab
           Column(
             children: [
-              Expanded(
-                child: _questions.isEmpty
-                    ? const Center(child: Text('No questions yet'))
-                    : ListView.builder(
-                        itemCount: _questions.length,
-                        itemBuilder: (c, i) {
-                          final q = _questions[i];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            child: ListTile(
-                              title: Text(q.title),
-                              subtitle: Text(q.body),
-                              trailing: Text('${q.votes} votes'),
-                            ),
-                          );
-                        },
+              if (_isLoadingQuestions)
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF667eea),
                       ),
-              ),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: _questions.isEmpty
+                      ? const Center(child: Text('No questions yet'))
+                      : ListView.builder(
+                          itemCount: _questions.length,
+                          itemBuilder: (c, i) {
+                            final q = _questions[i];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: ListTile(
+                                title: Text(q.title),
+                                subtitle: Text(q.body),
+                                trailing: Text('${q.votes} votes'),
+                              ),
+                            );
+                          },
+                        ),
+                ),
               Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Row(
@@ -377,23 +670,35 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
           // Discussions tab
           Column(
             children: [
-              Expanded(
-                child: _messages.isEmpty
-                    ? const Center(child: Text('No messages yet'))
-                    : ListView.builder(
-                        itemCount: _messages.length,
-                        itemBuilder: (c, i) {
-                          final m = _messages[i];
-                          return ListTile(
-                            title: Text(m.author),
-                            subtitle: Text(m.text),
-                            trailing: Text(
-                              '${m.createdAt.hour}:${m.createdAt.minute.toString().padLeft(2, '0')}',
-                            ),
-                          );
-                        },
+              if (_isLoadingMessages)
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF667eea),
                       ),
-              ),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: _messages.isEmpty
+                      ? const Center(child: Text('No messages yet'))
+                      : ListView.builder(
+                          itemCount: _messages.length,
+                          itemBuilder: (c, i) {
+                            final m = _messages[i];
+                            return ListTile(
+                              title: Text(m.author),
+                              subtitle: Text(m.text),
+                              trailing: Text(
+                                '${m.createdAt.hour}:${m.createdAt.minute.toString().padLeft(2, '0')}',
+                              ),
+                            );
+                          },
+                        ),
+                ),
               Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Row(

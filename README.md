@@ -1,6 +1,6 @@
 # devoverflow
 
-A new Flutter project and it contains Basic QNA type application for developers 
+A new Flutter project.
 
 ## Getting Started
 

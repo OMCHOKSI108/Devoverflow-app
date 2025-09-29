@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// SharedPreferences no longer used here — password changes go through API
+import 'api_service.dart';
+import 'api_config.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
-  const ChangePasswordScreen({Key? key}) : super(key: key);
+  const ChangePasswordScreen({super.key});
 
   @override
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
@@ -24,21 +26,34 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   Future<void> _changePassword() async {
     if (!_formKey.currentState!.validate()) return;
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString('password') ?? '';
-    if (_oldCtrl.text != stored) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Old password is incorrect')),
+    final api = ApiService();
+    try {
+      // Call server-side change password endpoint. Backend should validate the
+      // current password and apply the change. Do NOT store plaintext passwords
+      // locally in SharedPreferences.
+      final resp = await api.post(
+        ApiConfig.changePassword,
+        data: {'currentPassword': _oldCtrl.text, 'newPassword': _newCtrl.text},
       );
-      return;
+
+      if (resp['success'] == true) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Password changed')));
+        Navigator.of(context).pop();
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(resp['message'] ?? 'Failed to change')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     }
-    await prefs.setString('password', _newCtrl.text);
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Password changed')));
-    Navigator.of(context).pop();
   }
 
   @override

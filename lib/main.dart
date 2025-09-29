@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'welcome.dart';
 import 'signup.dart';
 import 'login.dart';
@@ -12,75 +13,99 @@ import 'questions.dart';
 import 'profile.dart';
 import 'change_password.dart';
 import 'groups.dart';
+import 'user_profile_view.dart';
+import 'chat_history.dart';
+import 'search.dart';
+import 'notifications.dart';
+import 'flowchart_screen.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'logger.dart';
+import 'api_config.dart';
+import 'api_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // seed default users if not present
+
+  await dotenv.load(fileName: ".env");
+
+  initLogger();
+
   final prefs = await SharedPreferences.getInstance();
-  if (!prefs.containsKey('all_users')) {
-    final seed = [
-      {"name": "Aarav Kumar", "email": "aarav.kumar@gmail.com"},
-      {"name": "Priya Sharma", "email": "priya.sharma@gmail.com"},
-      {"name": "Rohan Patel", "email": "rohan.patel@gmail.com"},
-      {"name": "Sneha Gupta", "email": "sneha.gupta@gmail.com"},
-      {"name": "Vikram Singh", "email": "vikram.singh@gmail.com"},
-      {"name": "Ananya Verma", "email": "ananya.verma@gmail.com"},
-      {"name": "Karan Joshi", "email": "karan.joshi@gmail.com"},
-      {"name": "Neha Reddy", "email": "neha.reddy@gmail.com"},
-      {"name": "Siddharth Mehta", "email": "siddharth.mehta@gmail.com"},
-      {"name": "Isha Malhotra", "email": "isha.malhotra@gmail.com"},
-      {"name": "Aditya Rao", "email": "aditya.rao@gmail.com"},
-      {"name": "Bhavya Singh", "email": "bhavya.singh@gmail.com"},
-      {"name": "Chirag Desai", "email": "chirag.desai@gmail.com"},
-      {"name": "Diya Nair", "email": "diya.nair@gmail.com"},
-      {"name": "Eshan Kapoor", "email": "eshan.kapoor@gmail.com"},
-      {"name": "Farhan Ali", "email": "farhan.ali@gmail.com"},
-      {"name": "Gauri Iyer", "email": "gauri.iyer@gmail.com"},
-      {"name": "Harsh Vyas", "email": "harsh.vyas@gmail.com"},
-      {"name": "Ishaan Verma", "email": "ishaan.verma@gmail.com"},
-      {"name": "Jiya Shah", "email": "jiya.shah@gmail.com"},
-      {"name": "Kavya Menon", "email": "kavya.menon@gmail.com"},
-      {"name": "Lakshmi Rao", "email": "lakshmi.rao@gmail.com"},
-      {"name": "Manav Gupta", "email": "manav.gupta@gmail.com"},
-      {"name": "Naveen Kumar", "email": "naveen.kumar@gmail.com"},
-      {"name": "Olivia D'Souza", "email": "olivia.dsouza@gmail.com"},
-      {"name": "Pranav Nair", "email": "pranav.nair@gmail.com"},
-      {"name": "Rhea Kaur", "email": "rhea.kaur@gmail.com"},
-      {"name": "Samar Jain", "email": "samar.jain@gmail.com"},
-      {"name": "Tanya Bhatt", "email": "tanya.bhatt@gmail.com"},
-      {"name": "Uday Sharma", "email": "uday.sharma@gmail.com"},
-      {"name": "Vidya Rao", "email": "vidya.rao@gmail.com"},
-    ];
-    await prefs.setString('all_users', json.encode(seed));
+
+  final allUsersSeed = <Map<String, dynamic>>[];
+
+  final friendsSeed = <Map<String, dynamic>>[];
+
+  final bookmarksSeed = <Map<String, dynamic>>[];
+
+  final api = ApiService();
+
+  Future<void> tryFetchAndCache(
+    String key,
+    Future<List<dynamic>> Function() fetcher,
+    List<dynamic> seed,
+  ) async {
+    try {
+      final list = await fetcher();
+      if (list.isNotEmpty) {
+        await prefs.setString(key, json.encode(list));
+        return;
+      }
+    } catch (e) {}
+
+    if (!prefs.containsKey(key)) {
+      await prefs.setString(key, json.encode(seed));
+    }
   }
-  if (!prefs.containsKey('friends')) {
-    // make first 3 seeded users friends by default
-    final users = json.decode(prefs.getString('all_users')!) as List;
-    final initialFriends = users.take(3).toList();
-    await prefs.setString('friends', json.encode(initialFriends));
-  }
-  if (!prefs.containsKey('bookmarks')) {
-    // seed a couple of bookmarks that resemble StackOverflow links
-    final bookmarks = [
-      {
-        'id': 1,
-        'title': 'How to implement feature 1 in Flutter?',
-        'excerpt':
-            'I am trying to implement feature 1 and facing issues with state management...',
-        'link': 'https://stackoverflow.com/questions/1',
-      },
-      {
-        'id': 3,
-        'title': 'How to implement feature 3 in Flutter?',
-        'excerpt':
-            'I am trying to implement feature 3 and facing issues with null safety...',
-        'link': 'https://stackoverflow.com/questions/3',
-      },
-    ];
-    await prefs.setString('bookmarks', json.encode(bookmarks));
-  }
+
+  await tryFetchAndCache('all_users', () async {
+    final resp = await api.getAllUsers(page: 1, limit: 100);
+    List<dynamic> list = ApiService().extractList(resp, ['users', 'data']);
+
+    // Handle nested data structure: response.data.users
+    if (list.isEmpty) {
+      final data = resp['data'];
+      if (data is Map<String, dynamic> && data['users'] is List) {
+        list = data['users'] as List<dynamic>;
+      }
+    }
+
+    return list;
+  }, allUsersSeed);
+
+  await tryFetchAndCache('friends', () async {
+    final resp = await api.getFriends(page: 1, limit: 100);
+    List<dynamic> list = ApiService().extractList(resp, ['friends', 'data']);
+
+    // Handle nested data structure: response.data.friends
+    if (list.isEmpty) {
+      final data = resp['data'];
+      if (data is Map<String, dynamic> && data['friends'] is List) {
+        list = data['friends'] as List<dynamic>;
+      }
+    }
+
+    return list;
+  }, friendsSeed);
+
+  await tryFetchAndCache('bookmarks', () async {
+    final resp = await api.getBookmarks(page: 1, limit: 100);
+    List<dynamic> list = ApiService().extractList(resp, ['bookmarks', 'data']);
+
+    // Handle nested data structure: response.data.bookmarks
+    if (list.isEmpty) {
+      final data = resp['data'];
+      if (data is Map<String, dynamic> && data['bookmarks'] is List) {
+        list = data['bookmarks'] as List<dynamic>;
+      }
+    }
+
+    return list;
+  }, bookmarksSeed);
+
+  // Debug info: print the configured base URL (helps with device vs localhost)
+  logInfo('API baseUrl (from .env): ${ApiConfig.baseUrl}');
 
   runApp(const MyApp());
 }
@@ -107,10 +132,23 @@ class MyApp extends StatelessWidget {
         '/myfriends': (context) => const MyFriendsScreen(),
         '/allfriends': (context) => const AllFriendsScreen(),
         '/aichatbot': (context) => const AIChatBotScreen(),
+        '/chat_history': (context) => const ChatHistoryScreen(),
         '/groups': (context) => const GroupListScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/change_password': (context) => const ChangePasswordScreen(),
         '/questions': (context) => const QuestionsScreen(),
+        '/search': (context) => const SearchScreen(),
+        '/notifications': (context) => const NotificationsScreen(),
+        '/flowchart': (context) => const FlowchartScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/user_profile_view') {
+          final email = settings.arguments as String;
+          return MaterialPageRoute(
+            builder: (context) => UserProfileViewScreen(userEmail: email),
+          );
+        }
+        return null;
       },
     );
   }

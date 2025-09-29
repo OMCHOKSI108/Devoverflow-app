@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_service.dart';
+import 'logger.dart' as logger;
+import 'auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -12,12 +15,104 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await ApiService().login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+
+      if (response['success'] == true) {
+        // After login, try to fetch canonical current user from API
+        try {
+          final current = await ApiService().getCurrentUser();
+          final prefs = await SharedPreferences.getInstance();
+          final user = current['user'] ?? response['user'];
+          if (user != null) {
+            await prefs.setString('current_user_email', user['email'] ?? '');
+            await prefs.setString('current_user_name', user['name'] ?? '');
+            // Some APIs return numeric _id as string; handle both
+            final idVal = user['id'] ?? user['_id'] ?? 0;
+            await prefs.setInt(
+              'current_user_id',
+              idVal is int
+                  ? idVal
+                  : int.tryParse(idVal?.toString() ?? '0') ?? 0,
+            );
+            await prefs.setInt(
+              'current_user_reputation',
+              user['reputation'] ?? 0,
+            );
+          }
+        } catch (e) {
+          // Fall back to using login response user data if current user fetch fails
+          final prefs = await SharedPreferences.getInstance();
+          final user = response['user'];
+          if (user != null) {
+            await prefs.setString('current_user_email', user['email'] ?? '');
+            await prefs.setString('current_user_name', user['name'] ?? '');
+            final idVal = user['id'] ?? user['_id'] ?? 0;
+            await prefs.setInt(
+              'current_user_id',
+              idVal is int
+                  ? idVal
+                  : int.tryParse(idVal?.toString() ?? '0') ?? 0,
+            );
+            await prefs.setInt(
+              'current_user_reputation',
+              user['reputation'] ?? 0,
+            );
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Login successful!')));
+          // Debug: log the stored token so we can confirm it's saved
+          try {
+            AuthService.getToken().then((tkn) {
+              logger.logInfo(
+                'Stored auth token after login: ${tkn ?? '<<null>>'}',
+              );
+            });
+          } catch (_) {}
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } else {
+        throw Exception(response['message'] ?? 'Login failed');
+      }
+    } catch (e) {
+      if (mounted) {
+        String errorMessage = 'Login failed';
+        if (e is ApiException) {
+          errorMessage = e.message;
+        } else if (e.toString().contains('SocketException')) {
+          errorMessage = 'Network error. Please check your connection.';
+        }
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -135,27 +230,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      if (_formKey.currentState!.validate()) {
-                        final prefs = await SharedPreferences.getInstance();
-                        final storedEmail = prefs.getString('email');
-                        final storedPassword = prefs.getString('password');
-                        if (!mounted) return;
-                        if (storedEmail == _emailController.text &&
-                            storedPassword == _passwordController.text) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Login successful!')),
-                          );
-                          Navigator.pushReplacementNamed(context, '/home');
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Invalid email or password'),
-                            ),
-                          );
-                        }
-                      }
-                    },
+                    onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF667eea),
                       foregroundColor: Colors.white,
@@ -164,15 +239,28 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 4,
-                      shadowColor: const Color(0xFF667eea).withOpacity(0.3),
+                      shadowColor: const Color(
+                        0xFF667eea,
+                      ).withValues(alpha: 0.3),
                     ),
-                    child: const Text(
-                      'Sign In',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 24),
